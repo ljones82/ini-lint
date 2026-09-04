@@ -59,14 +59,32 @@ had a problem, `0` otherwise.
 - Keys defined before any `[section]`
 - Duplicate keys within the same section, with a pointer back to the first
   definition
+- Continuation lines (an indented line with no key before it) that don't
+  follow a `key = value` line
 
 Blank lines and comments (`;` or `#`) are ignored, as usual.
 
+## Multi-line values
+
+A value can continue onto the following lines by indenting them:
+
+```ini
+[server]
+motd = welcome to the server,
+    please be nice
+    to each other
+```
+
+`motd` is read as the indented lines joined onto the first. A blank line
+or a comment ends the continuation, so an indented line right after either
+of those is flagged as an error instead of silently attached to the
+previous value.
+
 ## Not yet handled
 
-Multi-line values (continuation lines), inline comments after a value, and
-configurable dialects (case sensitivity, alternate comment characters) are
-left for later — see the roadmap in commit history.
+Inline comments after a value and configurable dialects (case sensitivity,
+alternate comment characters) are left for later — see the roadmap in
+commit history.
 
 ## Requirements
 

@@ -20,22 +20,44 @@ class Problem:
 
 
 def lint_text(text, filename="<stdin>"):
-    """Return a list of Problem objects found in the given INI text."""
+    """Return a list of Problem objects found in the given INI text.
+
+    A value may continue onto following lines: any line that is indented
+    (starts with a space or tab) is treated as part of the previous key's
+    value, as long as the previous non-blank line was itself a key or a
+    continuation of one. Blank lines and comments break the continuation,
+    so an indented line right after either of those is an error rather
+    than silently absorbed.
+    """
     problems = []
     sections_seen = {}
     keys_seen = {}
     current_section = None
+    continuation_active = False
 
     for lineno, raw_line in enumerate(text.splitlines(), start=1):
         line = raw_line
         stripped = line.strip()
 
         if not stripped:
+            continuation_active = False
             continue
         if stripped.startswith(";") or stripped.startswith("#"):
+            continuation_active = False
+            continue
+
+        if line[0] in (" ", "\t"):
+            if continuation_active:
+                continue
+            leading = len(line) - len(line.lstrip())
+            problems.append(Problem(
+                lineno, leading + 1,
+                "continuation line with no preceding 'key = value' line",
+            ))
             continue
 
         if stripped.startswith("["):
+            continuation_active = False
             bracket_col = line.index("[") + 1
             match = SECTION_RE.match(stripped)
             if not match:
@@ -69,6 +91,7 @@ def lint_text(text, filename="<stdin>"):
                 lineno, leading + 1,
                 "expected 'key = value', a section header, or a comment",
             ))
+            continuation_active = False
             continue
 
         key_part, sep, _value_part = match.groups()
@@ -79,8 +102,10 @@ def lint_text(text, filename="<stdin>"):
             problems.append(Problem(
                 lineno, sep_col, f"missing key before '{sep}'",
             ))
+            continuation_active = False
             continue
 
+        continuation_active = True
         key_col = len(key_part) - len(key_part.lstrip()) + 1
 
         if current_section is None:
