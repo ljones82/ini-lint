@@ -10,6 +10,14 @@ SECTION_RE = re.compile(r"^\[(.*)\]\s*$")
 # Matches "key = value" or "key : value". The key group is greedy up to the
 # first separator so a value containing "=" or ":" doesn't confuse the split.
 KEYVAL_RE = re.compile(r"^([^=:]*)([=:])(.*)$")
+# An inline comment must be preceded by whitespace, so a literal ';' or '#'
+# inside a value (a URL fragment, a password) isn't mistaken for one.
+INLINE_COMMENT_RE = re.compile(r"[ \t][;#]")
+
+
+def _strip_inline_comment(text):
+    match = INLINE_COMMENT_RE.search(text)
+    return text[:match.start()] if match else text
 
 
 @dataclass
@@ -58,8 +66,9 @@ def lint_text(text, filename="<stdin>"):
 
         if stripped.startswith("["):
             continuation_active = False
+            header = _strip_inline_comment(stripped)
             bracket_col = line.index("[") + 1
-            match = SECTION_RE.match(stripped)
+            match = SECTION_RE.match(header)
             if not match:
                 problems.append(Problem(
                     lineno, len(line) + 1,

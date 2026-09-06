@@ -61,6 +61,8 @@ had a problem, `0` otherwise.
   definition
 - Continuation lines (an indented line with no key before it) that don't
   follow a `key = value` line
+- Section headers with a trailing inline comment (`[server] ; note`) no
+  longer misreported as unterminated
 
 Blank lines and comments (`;` or `#`) are ignored, as usual.
 
@@ -80,11 +82,28 @@ or a comment ends the continuation, so an indented line right after either
 of those is flagged as an error instead of silently attached to the
 previous value.
 
+## Inline comments
+
+A `;` or `#` that follows a value, preceded by whitespace, starts an inline
+comment and is ignored:
+
+```ini
+[server]
+port = 8080 ; the default port
+```
+
+The whitespace is required so a literal `;` or `#` inside a value (a URL
+fragment, for instance) isn't mistaken for one. The same rule applies to
+section headers:
+
+```ini
+[server] ; the main one
+```
+
 ## Not yet handled
 
-Inline comments after a value and configurable dialects (case sensitivity,
-alternate comment characters) are left for later — see the roadmap in
-commit history.
+Configurable dialects (case sensitivity, alternate comment characters) are
+left for later — see the roadmap in commit history.
 
 ## Requirements
 
