@@ -63,8 +63,23 @@ had a problem, `0` otherwise.
   follow a `key = value` line
 - Section headers with a trailing inline comment (`[server] ; note`) no
   longer misreported as unterminated
+- Duplicate sections and keys are matched case-insensitively unless
+  `--strict` is given
 
 Blank lines and comments (`;` or `#`) are ignored, as usual.
+
+## Case sensitivity
+
+Section and key names are compared case-insensitively by default, so
+`[Server]` and `[server]` are treated as the same section, and `Port =`
+and `port =` as the same key, both flagged as duplicates. This matches
+how most real-world INI consumers (Windows `.ini` files, `git config`
+section names, and many others) behave. Pass `--strict` to compare names
+exactly as written instead:
+
+```
+$ python3 inilint.py --strict config.ini
+```
 
 ## Multi-line values
 
@@ -102,8 +117,8 @@ section headers:
 
 ## Not yet handled
 
-Configurable dialects (case sensitivity, alternate comment characters) are
-left for later — see the roadmap in commit history.
+Alternate comment characters and a `--fix` mode for common issues (like
+duplicate keys) are left for later — see the roadmap in commit history.
 
 ## Requirements
 

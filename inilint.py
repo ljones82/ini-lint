@@ -27,7 +27,7 @@ class Problem:
     message: str
 
 
-def lint_text(text, filename="<stdin>"):
+def lint_text(text, filename="<stdin>", strict=False):
     """Return a list of Problem objects found in the given INI text.
 
     A value may continue onto following lines: any line that is indented
@@ -36,12 +36,21 @@ def lint_text(text, filename="<stdin>"):
     continuation of one. Blank lines and comments break the continuation,
     so an indented line right after either of those is an error rather
     than silently absorbed.
+
+    Section and key names are compared case-insensitively by default,
+    matching the common INI convention (Windows .ini files work this way),
+    since that's the more common source of accidental duplicates. Pass
+    strict=True to compare them exactly as written instead.
     """
     problems = []
     sections_seen = {}
     keys_seen = {}
     current_section = None
+    current_section_key = None
     continuation_active = False
+
+    def fold(name):
+        return name if strict else name.lower()
 
     for lineno, raw_line in enumerate(text.splitlines(), start=1):
         line = raw_line
@@ -81,16 +90,18 @@ def lint_text(text, filename="<stdin>"):
                     lineno, bracket_col + 1, "section name cannot be empty",
                 ))
                 continue
-            if name in sections_seen:
+            section_key = fold(name)
+            if section_key in sections_seen:
                 problems.append(Problem(
                     lineno, bracket_col,
                     f"duplicate section '{name}' "
-                    f"(first defined at line {sections_seen[name]})",
+                    f"(first defined at line {sections_seen[section_key]})",
                 ))
                 continue
-            sections_seen[name] = lineno
+            sections_seen[section_key] = lineno
             current_section = name
-            keys_seen.setdefault(name, {})
+            current_section_key = section_key
+            keys_seen.setdefault(section_key, {})
             continue
 
         match = KEYVAL_RE.match(line)
@@ -123,7 +134,8 @@ def lint_text(text, filename="<stdin>"):
             ))
             continue
 
-        first_line = keys_seen[current_section].get(key)
+        key_key = fold(key)
+        first_line = keys_seen[current_section_key].get(key_key)
         if first_line is not None:
             problems.append(Problem(
                 lineno, key_col,
@@ -132,15 +144,15 @@ def lint_text(text, filename="<stdin>"):
             ))
             continue
 
-        keys_seen[current_section][key] = lineno
+        keys_seen[current_section_key][key_key] = lineno
 
     return problems
 
 
-def lint_file(path):
+def lint_file(path, strict=False):
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()
-    return lint_text(text, filename=path)
+    return lint_text(text, filename=path, strict=strict)
 
 
 def main(argv=None):
@@ -149,12 +161,17 @@ def main(argv=None):
         description="Check INI files for structural problems.",
     )
     parser.add_argument("files", nargs="+", help="INI files to check")
+    parser.add_argument(
+        "--strict", action="store_true",
+        help="treat section and key names as case-sensitive "
+             "(default: case-insensitive, e.g. [Server] and [server] collide)",
+    )
     args = parser.parse_args(argv)
 
     total_problems = 0
     for path in args.files:
         try:
-            problems = lint_file(path)
+            problems = lint_file(path, strict=args.strict)
         except OSError as exc:
             print(f"inilint: cannot read {path}: {exc.strerror}", file=sys.stderr)
             total_problems += 1
