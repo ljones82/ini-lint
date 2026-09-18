@@ -115,10 +115,26 @@ section headers:
 [server] ; the main one
 ```
 
+## Fixing problems
+
+`--fix` removes duplicate key definitions in place, keeping the first
+occurrence of each key (and its continuation lines) and dropping the
+rest:
+
+```
+$ python3 inilint.py --fix config.ini
+config.ini: removed 1 duplicate key
+```
+
+It only touches duplicate keys. Duplicate sections, malformed lines, and
+everything else it reports are left for you to fix by hand, since
+guessing at those is more likely to make the file worse. After fixing,
+it lints the result and reports whatever is left.
+
 ## Not yet handled
 
-Alternate comment characters and a `--fix` mode for common issues (like
-duplicate keys) are left for later — see the roadmap in commit history.
+Alternate comment characters are left for later — see the roadmap in
+commit history.
 
 ## Requirements
 

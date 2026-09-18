@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from inilint import Problem, lint_file, lint_text
+from inilint import Problem, fix_text, lint_file, lint_text
 
 
 class TestCleanFile(unittest.TestCase):
@@ -101,6 +101,56 @@ class TestContinuationLines(unittest.TestCase):
     def test_valid_multiline_value_has_no_problems(self):
         text = "[server]\nmotd = welcome to the server,\n    please be nice\n"
         self.assertEqual(lint_text(text), [])
+
+
+class TestFixText(unittest.TestCase):
+    def test_removes_duplicate_key_keeping_first(self):
+        text = "[server]\nport = 8080\nport = 9090\n"
+        fixed, removed = fix_text(text)
+        self.assertEqual(removed, 1)
+        self.assertEqual(fixed, "[server]\nport = 8080\n")
+
+    def test_removes_continuation_lines_with_duplicate(self):
+        text = (
+            "[server]\n"
+            "motd = hi\n"
+            "motd = bye\n"
+            "    still bye\n"
+            "host = localhost\n"
+        )
+        fixed, removed = fix_text(text)
+        self.assertEqual(removed, 1)
+        self.assertEqual(fixed, "[server]\nmotd = hi\nhost = localhost\n")
+
+    def test_duplicate_key_case_insensitive_by_default(self):
+        text = "[server]\nPort = 8080\nport = 9090\n"
+        fixed, removed = fix_text(text)
+        self.assertEqual(removed, 1)
+        self.assertEqual(fixed, "[server]\nPort = 8080\n")
+
+    def test_strict_mode_treats_different_case_as_distinct_keys(self):
+        text = "[server]\nPort = 8080\nport = 9090\n"
+        fixed, removed = fix_text(text, strict=True)
+        self.assertEqual(removed, 0)
+        self.assertEqual(fixed, text)
+
+    def test_no_duplicates_leaves_file_unchanged(self):
+        text = "[server]\nhost = localhost\nport = 8080\n"
+        fixed, removed = fix_text(text)
+        self.assertEqual(removed, 0)
+        self.assertEqual(fixed, text)
+
+    def test_duplicates_in_separate_sections_are_kept(self):
+        text = "[a]\nhost = localhost\n\n[b]\nhost = otherhost\n"
+        fixed, removed = fix_text(text)
+        self.assertEqual(removed, 0)
+        self.assertEqual(fixed, text)
+
+    def test_removes_multiple_duplicates(self):
+        text = "[server]\nhost = a\nhost = b\nport = 1\nport = 2\n"
+        fixed, removed = fix_text(text)
+        self.assertEqual(removed, 2)
+        self.assertEqual(fixed, "[server]\nhost = a\nport = 1\n")
 
 
 class TestLintFile(unittest.TestCase):
